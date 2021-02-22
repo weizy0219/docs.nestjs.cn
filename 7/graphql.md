@@ -987,11 +987,27 @@ creationDate: Date;
 
 【待翻译】
 
-## 联合类型
+## 联合类型和枚举
 
 【待翻译】
 
-## 枚举
+## 映射类型
+
+【待翻译】
+
+## 复杂性
+
+【待翻译】
+
+## 扩展
+
+【待翻译】
+
+## CLI 插件
+
+【待翻译】
+
+## 通用SDL
 
 【待翻译】
 
@@ -1095,3 +1111,4 @@ async upvotePost(
 | [@zuohuadong](https://www.zhihu.com/people/dongcang)  | <img class="avatar-66 rm-style" src="https://pic.downk.cc/item/5f4cafe7160a154a67c4047b.jpg">  |  翻译  | 专注于 caddy 和 nest，[@zuohuadong](https://github.com/zuohuadong/) at Github  |
 | [@Drixn](https://drixn.com/)  | <img class="avatar-66 rm-style" src="https://cdn.drixn.com/img/src/avatar1.png">  |  翻译  | 专注于 nginx 和 C++，[@Drixn](https://drixn.com/) |
 [@Armor](https://github.com/Armor-cn)  | <img class="avatar-66 rm-style" height="70" src="https://avatars3.githubusercontent.com/u/31821714?s=460&v=4">  |  翻译  | 专注于 Java 和 Nest，[@Armor](https://armor.ac.cn/) |
+| [@weizy0219](https://github.com/weizy0219)  | <img class="avatar-66 rm-style" height="70" src="https://avatars3.githubusercontent.com/u/19883738?s=60&v=4">  |  翻译  | 专注于TypeScript全栈、物联网和Python数据科学，[@weizhiyong](https://www.weizhiyong.com) |

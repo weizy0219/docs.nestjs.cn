@@ -44,25 +44,24 @@ bootstrap();
 
 |||
 |---|---|
-| `transport`          | 指定传输器                         |
-| `options`            | 确定传输器行为的传输器特定选项对象     |
+| `transport`   | 指定传输器，例如`Transport.NATS`    |
+| `options`     | 确定传输器行为的传输器特定选项对象     |
 
 
-`options` 对象根据所选的传送器而不同。`TCP` 传输器暴露了下面描述的几个属性。
+`options` 对象根据所选的传送器而不同。`TCP` 传输器暴露了下面描述的几个属性。其他传输器（如Redis,MQTT等）参见相关章节。
 
 |||
 |---|---|
-| `host`                 | 连接主机名                   |
-| `port`                 | 连接端口                     |
-| `retryAttempts`        | 连接尝试的总数                |
-| `retryDelay`           | 连接重试延迟（ms）            |
+| `host`   | 连接主机名     |
+| `port`   | 连接端口|
+| `retryAttempts` | 连接尝试的总数  |
+| `retryDelay`    | 连接重试延迟（ms）     |
 
 ### 模式（patterns）
 
 微服务通过 **模式** 识别消息。模式是一个普通值，例如对象、字符串。模式将自动序列化，并与消息的数据部分一起通过网络发送。因此，接收器可以容易地将传入消息与相应的处理器相关联。
 
 ### 请求-响应
-
 
 当您需要在各种外部服务之间交换消息时，请求-响应消息样式非常有用。使用此范例，您可以确定服务确实收到了消息(不需要手动实现消息 `ACK` 协议)。然而，请求-响应范式并不总是最佳选择。例如，使用基于日志的持久性的流传输器(如 `Kafka` 或 `NATS` 流)针对解决不同范围的问题进行了优化，更符合事件消息传递范例(有关更多细节，请参阅下面的基于事件的消息传递)。
 
@@ -85,7 +84,7 @@ export class MathController {
 }
 
 ```
-在上面的代码中，`accumulate()` 处理程序正在监听符合 `cmd :'sum'` 模式的消息。模式处理程序采用单个参数，即从客户端传递的 `data` 。在这种情况下，数据是必须累加的数字数组。
+在上面的代码中，`accumulate()` 处理程序正在监听符合 `{cmd :'sum'}` 模式的消息。模式处理程序采用单个参数，即从客户端传递的 `data` 。在这种情况下，数据是必须累加的数字数组。
 
 ### 异步响应
 
@@ -113,7 +112,7 @@ accumulate(data: number[]): Observable<number> {
 
 ### 基于事件
 
-虽然 `request-response` 方法是在服务之间交换消息的理想方法，但是当您的消息样式是基于事件的时（即您只想发布事件而不等待响应时），它不太适合。它会带来太多不必要的开销，而这些开销是完全无用的。例如，您希望简单地通知另一个服务系统的这一部分发生了某种情况。因此，我们也为基于事件的通信提供支持。
+虽然 `request-response` 方法是在服务之间交换消息的理想方法，但是当您的消息样式是基于事件的时（即您只想发布事件而不等待响应时），它不太适合。它会带来太多不必要的开销，而这些开销是完全无用的。例如，您希望简单地通知另一个服务系统的这一部分发生了某种情况。这种情况就适合使用基于事件的消息风格。
 
 为了创建事件处理程序，我们使用 `@EventPattern()`装饰器， 需要 ` @nestjs/microservices` 包导入。
 
@@ -144,38 +143,49 @@ getDate(@Payload() data: number[], @Ctx() context: NatsContext) {
 
  为了交换消息或将事件发布到 `Nest` 微服务，我们使用 `ClientProxy` 类, 它可以通过几种方式创建实例。此类定义了几个方法，例如`send()`（用于请求-响应消息传递）和`emit()`（用于事件驱动消息传递），这些方法允许您与远程微服务通信。使用下列方法之一获取此类的实例。
  
- 首先，我们可以使用 `ClientsModule` 暴露的静态`register()` 方法。此方法将数组作为参数，其中每个元素都具有 `name`（这是一种微服务标识符）以及特定于微服务的选项（它与传入 `createMicroservice()`  方法的对象相同）。
+ 首先，我们可以使用 `ClientsModule` 暴露的静态`register()` 方法。此方法将数组作为参数，其中每个元素都具有 `name`属性，以及一个可选的`transport`属性（默认是`Transport.TCP`），以及特定于微服务的`options`属性。
 
- `name`属性充当一个 `injection token`，可以在需要时将其用于注入 `ClientProxy` 实例。`name` 属性的值作为注入标记，可以是任意字符串或`JavaScript`符号，如下所述。
-`options` 对象的属性与我们之前在`createmicroservice（）`方法中看到的属性相同。
+ `name`属性充当一个 `injection token`，可以在需要时将其用于注入 `ClientProxy` 实例。`name` 属性的值作为注入标记，可以是任意字符串或`JavaScript`符号，[参考这里](https://docs.nestjs.com/fundamentals/custom-providers#non-class-based-provider-tokens)。
+
+`options` 属性是一个与我们之前在`createMicroservice()`方法中看到的相同的对象。
 
 ```typescript
-ClientsModule.register([
-  { name: 'MATH_SERVICE', transport: Transport.TCP },
-]),
+@Module({
+  imports: [
+    ClientsModule.register([
+      { name: 'MATH_SERVICE', transport: Transport.TCP },
+    ]),
+  ]
+  ...
+})
 ```
 
-导入模块之后，我们可以使用 `@Inject()` 装饰器注入`'MATH_SERVICE'`。
+导入模块之后，我们可以使用 `@Inject()` 装饰器将`'MATH_SERVICE'`注入`ClientProxy`的一个实例。
 
 ```typescript
 constructor(
-  @Inject('MATH_SERVICE') private readonly client: ClientProxy,
+  @Inject('MATH_SERVICE') private client: ClientProxy,
 ) {}
 ```
 
 ?> `ClientsModule`和 `ClientProxy`类需要从 `@nestjs/microservices` 包导入。
 
-有时候，我们可能需要从另一个服务(比如 `ConfigService` )获取微服务配置，为此，我们可以使用 `ClientProxyFactory` 类来注册一个自定义提供程序(它提供了一个 `ClientProxy` 实例):
+有时候，我们可能需要从另一个服务(比如 `ConfigService` )获取微服务配置而不是硬编码在客户端程序中，为此，我们可以使用 `ClientProxyFactory` 类来注册一个[自定义提供程序](https://docs.nestjs.com/techniques/custom-providers),这个类有一个静态的`create()`方法，接收传输者选项对象，并返回一个自定义的 `ClientProxy` 实例:
 
 ```typescript
-{
-  provide: 'MATH_SERVICE',
-  useFactory: (configService: ConfigService) => {
-    const mathSvcOptions = configService.getMathSvcOptions();
-    return ClientProxyFactory.create(mathSvcOptions);
-  },
-  inject: [ConfigService],
-}
+@Module({
+  providers: [
+    {
+      provide: 'MATH_SERVICE',
+      useFactory: (configService: ConfigService) => {
+        const mathSvcOptions = configService.getMathSvcOptions();
+        return ClientProxyFactory.create(mathSvcOptions);
+      },
+      inject: [ConfigService],
+    }
+  ]
+  ...
+})
 ```
 
 ?> `ClientProxyFactory` 需要从 `@nestjs/microservices` 包导入 。
@@ -202,7 +212,7 @@ async onApplicationBootstrap() {
 
 如果无法创建连接，则该 `connect()` 方法将拒绝相应的错误对象。
 
-### 消息传递
+### 发送消息
 
 该 `ClientProxy` 公开 `send()` 方法。 此方法旨在调用微服务，并返回带有其响应的 `Observable`。 因此，我们可以轻松地订阅发射的值。
 
@@ -216,7 +226,7 @@ accumulate(): Observable<number> {
 
 `send()` 函数接受两个参数，`pattern` 和 `payload`。`pattern` 具有 `@MessagePattern()` 修饰符中定义的这个模式，而 `payload` 是我们想要传输到另一个微服务的消息。该方法返回一个`cold Observable`对象，这意味着您必须在消息发送之前显式地订阅它。
 
-### 发布活动
+### 发布事件
 
 另一种是使用 `ClientProxy` 对象的 `emit()`方法。此方法的职责是将事件发布到消息代理。
 
@@ -232,7 +242,7 @@ async publish() {
 
 对于不同编程语言背景的人来说，可能会意外地发现，在 `Nest` 中，几乎所有内容都在传入的请求之间共享。例如，我们有一个到数据库的连接池，带有全局状态的单例服务，等等。请记住，`Node.js` 并不遵循`request-response`的多线程无状态模型，在这种模型中，每个请求都由单独的线程处理。因此，对于应用程序来说，使用单例实例是完全安全的。
 
-但是，在某些情况下，当应用程序是基于生命周期的行为时，也存在边界情况，例如 `GraphQL` 应用程序中的每个请求缓存、请求跟踪或多租户。在[这里](/6/fundamentals?id=作用域)学习如何控制范围。
+但是，在某些情况下，当应用程序是基于生命周期的行为时，也存在边界情况，例如 `GraphQL` 应用程序中的每个请求缓存、请求跟踪或多租户。在[这里](/7/fundamentals)学习如何控制范围。
 
 请求作用域的处理程序和提供程序可以使用 `@Inject()` 装饰器结合`CONTEXT` （上下文）令牌注入`RequestContext`:
 
@@ -246,7 +256,7 @@ export class CatsService {
 }
 ```
 
-还提供了对 `RequestContext ` 对象的访问，该对象有两个属性：
+还提供了对 `RequestContext` 对象的访问，该对象有两个属性：
 
 ```typescript
 export interface RequestContext<T = any> {
@@ -257,9 +267,25 @@ export interface RequestContext<T = any> {
 
 `data` 属性是消息生产者发送的消息有效负载。 `pattern` 属性是用于标识适当的处理程序以处理传入消息的模式。
 
+### 处理超时
+
+在分布式系统中，有时微服务可能宕机或者无法访问。要避免无限等待，可以使用超时，超时是一个和其他服务通讯的可信赖的方法。要在微服务中应用超时，你可以使用`RxJS`超时操作符。如果微服务没有在指定时间内返回响应，会抛出异常以便正确捕获与处理。
+
+要处理该问题，可以使用`[rxjs](https://github.com/ReactiveX/rxjs)`包，并在管道中使用`timeout`操作符。
+
+```TypeScript
+this.client
+      .send<TResult, TInput>(pattern, data)
+      .pipe(timeout(5000))
+      .toPromise();
+```
+?> `timeout`操作符从`rxjs/operators`中引入
+
+5秒后，如果微服务没有响应，将抛出错误。
+
 ## Redis
 
-[Redis](https://redis.io/) 传输器实现了发布/订阅消息传递范例，并利用了 `Redis` 的 `Pub/Sub` 特性。 已发布的消息按渠道分类，不知道哪些订阅者（如果有）最终会收到该消息。 每个微服务可以订阅任意数量的渠道。 此外，一次可以订阅多个频道。这意味着如果发布了一条消息，并且没有订阅者对此消息感兴趣，则该消息将被删除并且无法恢复。 因此，您不能保证消息或事件将至少由一项服务处理。 一条消息可以由多个订户订阅（并接收）。
+[Redis](https://redis.io/) 传输器实现了[Pub/Sub(发布/订阅)](https://redis.io/topics/pubsub)消息传递范例，并利用了 `Redis` 的 `[Pub/Sub](https://redis.io/topics/pubsub)` 特性。 已发布的消息按渠道分类，不知道哪些订阅者（如果有）最终会收到该消息。 每个微服务可以订阅任意数量的渠道。 此外，一次可以订阅多个频道。这意味着如果发布了一条消息，并且没有订阅者对此消息感兴趣，则该消息将被删除并且无法恢复。 因此，您不能保证消息或事件将至少由一项服务处理。 一条消息可以由多个订户订阅（并接收）。
 
 
 ![](https://docs.nestjs.com/assets/Redis_1.png)
@@ -289,21 +315,45 @@ const app = await NestFactory.createMicroservice(ApplicationModule, {
 
 ?> `Transport` 需要从 `@nestjs/microservices` 包导入。
 
-同样，要创建一个客户端实例，我们需要传递一个 `options` 对象，该对象具有与前面在 `createMicroservice()` 方法具有相同的属性。
+
+### 选项
+
+有许多可用的选项可以确定传输器的行为。`Redis` 公开了下面描述的属性。
+
+|   | |
+| :--------------------- | :-------------------------- |
+| `url`    | 连接网址|
+| `retryAttempts` | 连接尝试的总数  |
+| `retryDelay`    | 连接重试延迟（ms）     |
+
+[Redis](https://www.npmjs.com/package/redis#options-object-properties)客户端支持的所有属性该传输器都支持。
+
+### 客户端
+
+像其他微服务传输器一样，你可以在创建`ClientProxy`实例时传输[一些选项](https://docs.nestjs.com/microservices/basics#client)。
+
+一种来创建实例的方法是使用`ClientsModule`。要使用`ClientsModule`创建一个客户端实例，引入并使用`register()`方法并传递一个 `options` 对象，该对象具有与前面在 `createMicroservice()` 方法具有相同的属性。`name`属性被用于注入`token`，更多关于`ClientsModule`内容参见[这里](https://docs.nestjs.com/microservices/basics#client)。
 
 ```typescript
-ClientsModule.register([
-  {
-    name: 'MATH_SERVICE',
-    transport: Transport.REDIS,
-    options: {
-      url: 'redis://localhost:6379',
-    }
-  },
-]),
+@Module({
+  imports: [
+    ClientsModule.register([
+      {
+        name: 'MATH_SERVICE',
+        transport: Transport.REDIS,
+        options: {
+          url: 'redis://localhost:6379',
+        }
+      },
+    ]),
+  ]
+  ...
+})
 ```
 
-也可以使用其他创建客户端的实例（ `ClientProxyFactory` 或 `@Client()` ）。你可以在[这里](/6/introduction.md)读到。
+也可以使用其他创建客户端的实例（ `ClientProxyFactory` 或 `@Client()` ）。
+
+### 上下文
 
 在更复杂的场景中，您可能希望访问关于传入请求的更多信息。在`Redis` 中，您可以访问 `RedisContext`对象。
 
@@ -313,21 +363,12 @@ getDate(@Payload() data: number[], @Ctx() context: RedisContext) {
   console.log(`Channel: ${context.getChannel()}`);
 }
 ```
+
 ?> `@Payload()`， `@Ctx()` 和 `RedisContext` 需要从 `@nestjs/microservices` 包导入.
-
-### 选项
-
-有许多可用的选项可以确定传输器的行为。`Redis` 公开了下面描述的属性。
-
-|                        |                             |
-| :--------------------- | :-------------------------- |
-| `url`                  | 连接网址                     |
-| `retryAttempts`        | 连接尝试的总数                |
-| `retryDelay`           | 连接重试延迟（ms）            |
 
 ## MQTT
 
-[MQTT](http://mqtt.org/)是一个轻量级消息协议，用于高延迟优化。（译者注：MQTT 协议在智能家居等硬件通信领域十分广泛，是首选协议）
+[MQTT](http://mqtt.org/)是一个开源的轻量级消息协议，用于高延迟优化。该协议提供了一个可扩展的低开销的方式，使用`publish/subscribe`模式连接设备。一个基于MQTT协议的通讯系统由发布服务器，中间人和一个或多个客户端组成。它设计为应用于受限制的设备和低带宽、高延迟或不可信任的网络中。
 
 ### 安装
 
@@ -344,24 +385,71 @@ $ npm i --save mqtt
 > main.ts
 
 ```typescript
-const app = await NestFactory.createMicroservice(ApplicationModule, {
+const app = await NestFactory.createMicroservice<MicroserviceOptions>(ApplicationModule, {
   transport: Transport.MQTT,
   options: {
-    host: 'localhost',
-    port: 1883,
+    url: 'mqtt://localhost:1883',
   },
 });
 ```
 
-?> `Transport` 需要从 `@nestjs/microservices` 包导入。
+?> `Transport` 枚举需要从 `@nestjs/microservices` 包导入。
 
-### 属性
+### 选项
 
-有很多可用的属性可以决定传输器的行为。更多描述请[查看](https://github.com/mqttjs/MQTT.js)。
+有很多可用的`options`对象可以决定传输器的行为。更多描述请[查看](https://github.com/mqttjs/MQTT.js)。
 
+### 客户端
+
+像其他微服务传输器一样，你可以在创建`ClientProxy`实例时传输[一些选项](https://docs.nestjs.com/microservices/basics#client)。
+
+一种来创建实例的方法是使用`ClientsModule`。要使用`ClientsModule`创建一个客户端实例，引入并使用`register()`方法并传递一个 `options` 对象，该对象具有与前面在 `createMicroservice()` 方法具有相同的属性。`name`属性被用于注入`token`，更多关于`ClientsModule`内容参见[这里](https://docs.nestjs.com/microservices/basics#client)。
+
+```typescript
+@Module({
+  imports: [
+    ClientsModule.register([
+      {
+        name: 'MATH_SERVICE',
+        transport: Transport.MQTT,
+        options: {
+          url: 'mqtt://localhost:1883',
+        }
+      },
+    ]),
+  ]
+  ...
+})
+```
+
+也可以使用其他创建客户端的实例（ `ClientProxyFactory` 或 `@Client()` ）。
+
+### 上下文
+
+在更复杂的场景中，您可能希望访问关于传入请求的更多信息。在`MQTT` 中，您可以访问 `MqttContext`对象。
+
+```typescript
+@MessagePattern('notifications')
+getNotifications(@Payload() data: number[], @Ctx() context: MqttContext) {
+  console.log(`Topic: ${context.getTopic()}`);
+}
+```
+
+?> `@Payload()`， `@Ctx()` 和 `MqttContext` 需要从 `@nestjs/microservices` 包导入.
+
+### 通配符
+
+一个订阅可能是一个显式的`topic`或者包含通配符，`+`和`#`两个通配符可以用在这里，`+`表示单层通配符而 `#`表示多层通配符，可以涵盖很多`topic`层次。
+
+```typescript
+@MessagePattern('sensors/+/temperature/+')
+getTemperature(@Ctx() context: MqttContext) {
+  console.log(`Topic: ${context.getTopic()}`);
+}
+```
 ## NATS
 
-[NATS](https://nats.io) 是一个简单、高性能的开源消息传递系统。
+[NATS](https://nats.io) 是一个简单、高性能的云应用原生、物联网和微服务架构应用的开源消息系统。`NATS`服务器使用`Go`语言编写，但客户端可以通过各种主流语言与服务器交互。`NATS`支持最多一次和最少一次的传输。可以在任何地方运行，从大型服务器和云实例到边缘网关甚至物联网设备都能运行。
 
 ### 安装
 
@@ -378,7 +466,7 @@ $ npm i --save nats
 > main.ts
 
 ```typescript
-const app = await NestFactory.createMicroservice(ApplicationModule, {
+const app = await NestFactory.createMicroservice<MicroserviceOptions>(ApplicationModule, {
   transport: Transport.NATS,
   options: {
     url: 'nats://localhost:4222',
@@ -388,6 +476,49 @@ const app = await NestFactory.createMicroservice(ApplicationModule, {
 
 ?> `Transport` 需要从 `@nestjs/microservices` 包导入。
 
+### 选项
+
+`options`对象和选择的传输器有关，`NATS`传输器暴露了一些属性，见[这里](https://github.com/nats-io/node-nats#connect-options)，它还有一个额外的`queue`属性，允许你指定要从服务器订阅的队列名称。(如果要忽略该配置可以设置为`undefined`)。
+
+### 客户端
+
+像其他微服务传输器一样，你可以在创建`ClientProxy`实例时传输[一些选项](https://docs.nestjs.com/microservices/basics#client)。
+
+一种来创建实例的方法是使用`ClientsModule`。要使用`ClientsModule`创建一个客户端实例，引入并使用`register()`方法并传递一个 `options` 对象，该对象具有与前面在 `createMicroservice()` 方法具有相同的属性。`name`属性被用于注入`token`，更多关于`ClientsModule`内容参见[这里](https://docs.nestjs.com/microservices/basics#client)。
+
+```typescript
+@Module({
+  imports: [
+    ClientsModule.register([
+      {
+        name: 'MATH_SERVICE',
+        transport: Transport.NATS,
+        options: {
+          url: 'nats://localhost:4222',
+        }
+      },
+    ]),
+  ]
+  ...
+})
+```
+
+也可以使用其他创建客户端的实例（ `ClientProxyFactory` 或 `@Client()` ）。
+
+
+
+### 上下文
+
+在更复杂的场景中，您可能希望访问关于传入请求的更多信息。在`Redis` 中，您可以访问 `RedisContext`对象。
+
+```typescript
+@MessagePattern('notifications')
+getDate(@Payload() data: number[], @Ctx() context: RedisContext) {
+  console.log(`Channel: ${context.getChannel()}`);
+}
+```
+
+?> `@Payload()`， `@Ctx()` 和 `RedisContext` 需要从 `@nestjs/microservices` 包导入.
 
 ### 选项
 
@@ -423,7 +554,43 @@ const app = await NestFactory.createMicroservice(ApplicationModule, {
 ```
 
 ?> `Transport` 需要从 `@nestjs/microservices` 包导入。
+### 客户端
 
+像其他微服务传输器一样，你可以在创建`ClientProxy`实例时传输[一些选项](https://docs.nestjs.com/microservices/basics#client)。
+
+一种来创建实例的方法是使用`ClientsModule`。要使用`ClientsModule`创建一个客户端实例，引入并使用`register()`方法并传递一个 `options` 对象，该对象具有与前面在 `createMicroservice()` 方法具有相同的属性。`name`属性被用于注入`token`，更多关于`ClientsModule`内容参见[这里](https://docs.nestjs.com/microservices/basics#client)。
+
+```typescript
+@Module({
+  imports: [
+    ClientsModule.register([
+      {
+        name: 'MATH_SERVICE',
+        transport: Transport.REDIS,
+        options: {
+          url: 'redis://localhost:6379',
+        }
+      },
+    ]),
+  ]
+  ...
+})
+```
+
+也可以使用其他创建客户端的实例（ `ClientProxyFactory` 或 `@Client()` ）。
+
+### 上下文
+
+在更复杂的场景中，您可能希望访问关于传入请求的更多信息。在`Redis` 中，您可以访问 `RedisContext`对象。
+
+```typescript
+@MessagePattern('notifications')
+getDate(@Payload() data: number[], @Ctx() context: RedisContext) {
+  console.log(`Channel: ${context.getChannel()}`);
+}
+```
+
+?> `@Payload()`， `@Ctx()` 和 `RedisContext` 需要从 `@nestjs/microservices` 包导入.
 ### 属性
 
 
@@ -492,19 +659,19 @@ const app = await NestFactory.createMicroservice(ApplicationModule, {
     <td><code>client</code></td>
     <td>Client configuration options (read more
       <a
-        href="https://kafka.js.org/docs/configuration"
-        rel="nofollow"
-        target="blank"
-        >here</a
+ href="https://kafka.js.org/docs/configuration"
+ rel="nofollow"
+ target="blank"
+ >here</a
       >)</td>
   </tr>
   <tr>
     <td><code>consumer</code></td>
     <td>Consumer configuration options (read more
       <a
-        href="https://kafka.js.org/docs/consuming#a-name-options-a-options"
-        rel="nofollow"
-        target="blank"
+ href="https://kafka.js.org/docs/consuming#a-name-options-a-options"
+ rel="nofollow"
+ target="blank"
         >here</a
       >)</td>
   </tr>
@@ -1167,3 +1334,4 @@ accumulate(data: number[]): number {
 | [@Drixn](https://drixn.com/)  | <img class="avatar-66 rm-style" src="https://cdn.drixn.com/img/src/avatar1.png">  |  翻译  | 专注于 nginx 和 C++，[@Drixn](https://drixn.com/) |
 | [@Armor](https://github.com/Armor-cn)  | <img class="avatar-66 rm-style" height="70" src="https://avatars3.githubusercontent.com/u/31821714?s=460&v=4">  |  翻译  | 专注于 Java 和 Nest，[@Armor](https://armor.ac.cn/) | 
 | [@tihssiefiL](https://github.com/tihssiefiL)  | <img class="avatar-66 rm-style" height="80" src="https://avatars1.githubusercontent.com/u/27731469?s=460&u=26299e3ac3d46723492efa3daf1eb9703de0616a&v=4">  |  翻译  | 专注于 前端 和 nodejs, [@tihssiefiL](https://blog.ezcomezgo.com) | 
+| [@weizy0219](https://github.com/weizy0219)  | <img class="avatar-66 rm-style" height="70" src="https://avatars3.githubusercontent.com/u/19883738?s=60&v=4">  |  翻译  | 专注于TypeScript全栈、物联网和Python数据科学，[@weizhiyong](https://www.weizhiyong.com) |
